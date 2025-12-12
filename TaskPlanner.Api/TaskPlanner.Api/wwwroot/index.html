@@ -1,0 +1,400 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Личный планировщик задач</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .completed-task {
+            text-decoration: line-through;
+            color: #6c757d;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .status-badge {
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">Мой планировщик задач</h1>
+
+        <!-- Форма добавления задачи -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Добавить новую задачу</h5>
+                <form id="taskForm">
+                    <div class="mb-3">
+                        <label for="taskTitle" class="form-label">Название задачи *</label>
+                        <input type="text" class="form-control" id="taskTitle" required maxlength="100">
+                    </div>
+                    <div class="mb-3">
+                        <label for="taskDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="taskDescription" rows="3" maxlength="500"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Добавить задачу</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Фильтры</h5>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary active" data-filter="all" onclick="filterTasks('all')">Все</button>
+                    <button type="button" class="btn btn-outline-success" data-filter="active" onclick="filterTasks('active')">Активные</button>
+                    <button type="button" class="btn btn-outline-info" data-filter="completed" onclick="filterTasks('completed')">Выполненные</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Статистика -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Всего задач</h5>
+                        <span id="totalTasks" class="display-4">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-warning">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Активных</h5>
+                        <span id="activeTasks" class="display-4">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Выполненных</h5>
+                        <span id="completedTasks" class="display-4">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Список задач -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Список задач</h5>
+                <div id="tasksList">
+                    <div class="text-center py-4">
+                        <p class="text-muted">Загрузка задач...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let allTasks = [];
+        let currentFilter = 'all';
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function () {
+            loadTasks();
+
+            // Настройка формы добавления задачи
+            document.getElementById('taskForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                addTask();
+            });
+        });
+
+        // Загрузка всех задач с сервера
+        async function loadTasks() {
+            try {
+                const response = await fetch('/api/tasks');
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки задач');
+                }
+
+                allTasks = await response.json();
+                console.log('Загруженные задачи:', allTasks); // Для отладки
+                renderTasks(allTasks);
+                updateStats();
+
+            } catch (error) {
+                console.error('Ошибка загрузки задач:', error);
+                document.getElementById('tasksList').innerHTML =
+                    '<div class="alert alert-danger">Ошибка загрузки задач. Проверьте консоль для подробностей.</div>';
+            }
+        }
+
+        // Отображение задач с учетом фильтра
+        function renderTasks(tasks) {
+            const container = document.getElementById('tasksList');
+
+            // Фильтруем задачи в зависимости от текущего фильтра
+            let filteredTasks = tasks;
+            if (currentFilter === 'active') {
+                filteredTasks = tasks.filter(task => !task.IsCompleted);
+            } else if (currentFilter === 'completed') {
+                filteredTasks = tasks.filter(task => task.IsCompleted);
+            }
+
+            if (filteredTasks.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">Нет задач для отображения</div>';
+                return;
+            }
+
+            const taskElements = filteredTasks.map(task => createTaskElement(task)).join('');
+            container.innerHTML = `
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Статус</th>
+                            <th>Название</th>
+                            <th>Описание</th>
+                            <th>Дата создания</th>
+                            <th>Дата выполнения</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasksTableBody">
+                        ${taskElements}
+                    </tbody>
+                </table>
+            `;
+
+            // Добавляем обработчики событий для вновь созданных кнопок
+            addTableEventListeners();
+        }
+
+        // Создание элемента задачи
+        function createTaskElement(task) {
+            const statusClass = task.IsCompleted ? 'completed-task' : '';
+            const statusBadge = task.IsCompleted ?
+                `<span class="badge bg-success status-badge">Выполнено</span>` :
+                `<span class="badge bg-warning status-badge">Активно</span>`;
+
+            const completedDate = task.CompletedDate ?
+                new Date(task.CompletedDate).toLocaleString('ru-RU') :
+                '-';
+
+            return `
+                <tr id="task-${task.Id}">
+                    <td>${statusBadge}</td>
+                    <td class="${statusClass}">${escapeHtml(task.Title)}</td>
+                    <td class="${statusClass}">${task.Description ? escapeHtml(task.Description) : '-'}</td>
+                    <td>${new Date(task.CreatedDate).toLocaleString('ru-RU')}</td>
+                    <td>${completedDate}</td>
+                    <td class="task-actions">
+                        <button class="btn btn-sm ${task.IsCompleted ? 'btn-warning' : 'btn-success'} toggle-btn" data-id="${task.Id}">
+                            ${task.IsCompleted ? 'Отменить' : 'Выполнить'}
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-btn" data-id="${task.Id}">
+                            Удалить
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Добавление обработчиков событий для таблицы
+        function addTableEventListeners() {
+            const tableBody = document.getElementById('tasksTableBody');
+            if (!tableBody) return;
+
+            tableBody.addEventListener('click', function (e) {
+                const target = e.target;
+                const button = target.closest('button');
+
+                if (!button) return;
+
+                const taskId = parseInt(button.getAttribute('data-id'));
+
+                if (button.classList.contains('delete-btn')) {
+                    deleteTask(taskId);
+                } else if (button.classList.contains('toggle-btn')) {
+                    toggleTaskStatus(taskId);
+                }
+            });
+        }
+
+        // Экранирование HTML для безопасности
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Добавление новой задачи
+        async function addTask() {
+            const title = document.getElementById('taskTitle').value.trim();
+            const description = document.getElementById('taskDescription').value.trim();
+
+            if (!title) {
+                alert('Название задачи обязательно!');
+                return;
+            }
+
+            const newTask = {
+                Title: title,
+                Description: description
+            };
+
+            try {
+                const response = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(newTask)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText);
+                }
+
+                // Перезагружаем все задачи
+                await loadTasks();
+
+                // Очищаем форму
+                document.getElementById('taskForm').reset();
+
+                // Показываем сообщение об успехе
+                showNotification('Задача успешно добавлена!', 'success');
+
+            } catch (error) {
+                console.error('Ошибка при добавлении задачи:', error);
+                alert('Ошибка при добавлении задачи: ' + error.message);
+            }
+        }
+
+        // Переключение статуса задачи
+        async function toggleTaskStatus(taskId) {
+            const task = allTasks.find(t => t.Id === taskId);
+            if (!task) {
+                console.log('Задача не найдена');
+                return;
+            }
+
+            const updatedTask = {
+                Id: task.Id,
+                Title: task.Title,
+                Description: task.Description,
+                IsCompleted: !task.IsCompleted
+            };
+
+            try {
+                const response = await fetch(`/api/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedTask)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText);
+                }
+
+                // Перезагружаем все задачи
+                await loadTasks();
+
+                // Показываем уведомление
+                const status = !task.IsCompleted ? 'выполнена' : 'активна';
+                showNotification(`Задача "${task.Title}" отмечена как ${status}`, 'success');
+
+            } catch (error) {
+                console.error('Ошибка при обновлении статуса:', error);
+                alert('Ошибка при обновлении статуса задачи: ' + error.message);
+            }
+        }
+
+        // Удаление задачи
+        async function deleteTask(taskId) {
+            const task = allTasks.find(t => t.Id === taskId);
+            if (!task) {
+                alert('Задача не найдена');
+                return;
+            }
+
+            if (!confirm(`Вы уверены, что хотите удалить задачу "${task.Title}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/tasks/${taskId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText);
+                }
+
+                // Перезагружаем все задачи
+                await loadTasks();
+
+                // Показываем сообщение
+                showNotification(`Задача "${task.Title}" удалена`, 'warning');
+
+            } catch (error) {
+                console.error('Ошибка при удалении:', error);
+                alert('Ошибка при удалении задачи: ' + error.message);
+            }
+        }
+
+        // Фильтрация задач
+        function filterTasks(filter) {
+            currentFilter = filter;
+
+            // Обновляем кнопки фильтра
+            document.querySelectorAll('[data-filter]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+
+            renderTasks(allTasks);
+        }
+
+        // Обновление статистики
+        function updateStats() {
+            const total = allTasks.length;
+            const completed = allTasks.filter(task => task.IsCompleted).length;
+            const active = total - completed;
+
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('activeTasks').textContent = active;
+        }
+
+        // Вспомогательная функция для показа уведомлений
+        function showNotification(message, type = 'info') {
+            // Создаем элемент уведомления
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            // Добавляем на страницу
+            document.body.appendChild(notification);
+
+            // Автоматически удаляем через 3 секунды
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

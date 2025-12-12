@@ -1,0 +1,8 @@
+C:\Users\manda\source\repos\TaskPlanner.Api\obj\Debug\net9.0\TaskPlanner.Api.csproj.AssemblyReference.cache
+C:\Users\manda\source\repos\TaskPlanner.Api\obj\Debug\net9.0\rpswa.dswa.cache.json
+C:\Users\manda\source\repos\TaskPlanner.Api\obj\Debug\net9.0\TaskPlanner.Api.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\manda\source\repos\TaskPlanner.Api\obj\Debug\net9.0\TaskPlanner.Api.AssemblyInfoInputs.cache
+C:\Users\manda\source\repos\TaskPlanner.Api\obj\Debug\net9.0\TaskPlanner.Api.AssemblyInfo.cs
+C:\Users\manda\source\repos\TaskPlanner.Api\obj\Debug\net9.0\TaskPlanner.Api.csproj.CoreCompileInputs.cache
+C:\Users\manda\source\repos\TaskPlanner.Api\obj\Debug\net9.0\TaskPlanner.Api.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\manda\source\repos\TaskPlanner.Api\obj\Debug\net9.0\TaskPlanner.Api.MvcApplicationPartsAssemblyInfo.cache
